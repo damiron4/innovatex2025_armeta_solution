@@ -1,0 +1,9 @@
+path: merged_yolo
+
+train: images/train
+val: images/val
+
+names:
+  0: signature
+  1: stamp
+  2: qr
