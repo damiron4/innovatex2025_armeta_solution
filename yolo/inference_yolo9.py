@@ -13,8 +13,8 @@ INPUT_SOURCE = "test"
 
 OUTPUT_DIR = "inference_results"
 
-CONF_THRESHOLD = 0.15  
-IOU_THRESHOLD = 0.45   
+CONF_THRESHOLD = 0.2  
+IOU_THRESHOLD = 0.55   
 IMG_SIZE = 640         
 
 CLASS_NAMES = {
