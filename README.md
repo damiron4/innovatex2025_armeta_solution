@@ -51,3 +51,5 @@ python train_yolo9.py
 ```bash
 python inference_yolo9.py <path_to_your_test_data> 
 ``` 
+
+The results will appear in ```./yolo/inference_results ``` 
