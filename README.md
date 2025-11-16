@@ -35,21 +35,21 @@ If you want to reproduce the whole data collection and training, you need to dow
 
 ### Prepare the data 
 
-- qr_dataset.ipynb
-- stamp_data_filter.ipynb
-- convert_signature_to_yolo.ipynb
-- merge_datasets.ipynb
+- yolo/qr_dataset.ipynb
+- yolo/stamp_data_filter.ipynb
+- yolo/convert_signature_to_yolo.ipynb
+- yolo/merge_datasets.ipynb
 
 ### Run the training
 
 ```bash
-python train_yolo9.py 
+python yolo/train_yolo9.py 
 ``` 
 
 ## Inference
 
 ```bash
-python inference_yolo9.py <path_to_your_test_data> 
+python yolo/inference_yolo9.py <path_to_your_test_data> 
 ``` 
 
 The results will appear in ```./yolo/inference_results ``` 
