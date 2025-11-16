@@ -24,7 +24,7 @@ CLASS_NAMES = {
 }
 
 
-def convert_pdf_to_images(pdf_path, dpi=200):
+def convert_pdf_to_images(pdf_path, dpi=300):
     """
     Convert PDF pages to images
     
