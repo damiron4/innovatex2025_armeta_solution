@@ -5,11 +5,12 @@ import cv2
 from pdf2image import convert_from_path
 import numpy as np
 import json
+import time
 
 
 MODEL_PATH = "runs_yolov9/signature_stamp_qr3/weights/best.pt"
 
-INPUT_SOURCE = "test"  
+INPUT_SOURCE = "C:\\Users\\user\\Desktop\\My_Projects\\innovatex2025_armeta_solution\\merged_pdfs_test"  
 
 OUTPUT_DIR = "inference_results"
 
@@ -24,7 +25,7 @@ CLASS_NAMES = {
 }
 
 
-def convert_pdf_to_images(pdf_path, dpi=300):
+def convert_pdf_to_images(pdf_path, dpi=200):
     """
     Convert PDF pages to images
     
@@ -36,7 +37,7 @@ def convert_pdf_to_images(pdf_path, dpi=300):
         List of numpy arrays (images)
     """
     try:
-        pages = convert_from_path(pdf_path, dpi=300)
+        pages = convert_from_path(pdf_path, dpi=200)
         images = [np.array(page.convert('RGB')) for page in pages]
         return images
     except Exception as e:
@@ -115,17 +116,19 @@ def process_pdf(pdf_path, model, output_dir, json_data, annotation_counter):
         annotation_counter: Counter for annotation IDs
     
     Returns:
-        Tuple of (list of results, updated annotation counter)
+        Tuple of (list of results, updated annotation counter, timing_info)
     """
     pdf_filename = Path(pdf_path).name  
     pdf_stem = Path(pdf_path).stem
     print(f"\n Processing PDF: {pdf_stem}")
     
+    pdf_start_time = time.time()
+    
     images = convert_pdf_to_images(pdf_path)
     
     if not images:
         print(f"️ No pages extracted from {pdf_stem}")
-        return [], annotation_counter
+        return [], annotation_counter, {"total_time": 0, "page_times": []}
     
     print(f"   Extracted {len(images)} pages")
     
@@ -135,10 +138,13 @@ def process_pdf(pdf_path, model, output_dir, json_data, annotation_counter):
     json_data[pdf_filename] = {}
     
     all_results = []
+    page_times = []
     
     for page_idx, img in enumerate(images):
         page_num = page_idx + 1
         page_key = f"page_{page_num}"
+        
+        page_start_time = time.time()
         
         orig_height, orig_width = img.shape[:2]
         
@@ -172,6 +178,7 @@ def process_pdf(pdf_path, model, output_dir, json_data, annotation_counter):
                 orig_xyxy = unscale_bbox(xyxy, scale, pad_x, pad_y)
                 x1, y1, x2, y2 = orig_xyxy
                 
+                # Use absolute pixel coordinates
                 x = float(x1)
                 y = float(y1)
                 width = float(x2 - x1)
@@ -206,10 +213,24 @@ def process_pdf(pdf_path, model, output_dir, json_data, annotation_counter):
                 }
             }
         
+        page_end_time = time.time()
+        page_time = page_end_time - page_start_time
+        page_times.append(page_time)
+        
         all_results.append(results)
     
+    pdf_end_time = time.time()
+    pdf_total_time = pdf_end_time - pdf_start_time
+    
+    timing_info = {
+        "total_time": pdf_total_time,
+        "page_times": page_times,
+        "num_pages": len(images)
+    }
+    
     print(f"    Results saved to: {pdf_output_dir}")
-    return all_results, annotation_counter
+    print(f"   ️  Total time: {pdf_total_time:.2f}s | Avg per page: {pdf_total_time/len(images):.2f}s")
+    return all_results, annotation_counter, timing_info
 
 
 
@@ -332,6 +353,8 @@ def run_inference_pdfs(folder_path):
     Returns:
         Dictionary with PDF names as keys and results as values
     """
+    overall_start_time = time.time()
+    
     print(f" Loading model: {MODEL_PATH}")
     model = YOLO(MODEL_PATH)
     
@@ -350,10 +373,24 @@ def run_inference_pdfs(folder_path):
     all_results = {}
     json_data = {}
     annotation_counter = 1
+    timing_data = {}
+    all_page_times = []
+    total_pages = 0
     
     for pdf_file in pdf_files:
-        results, annotation_counter = process_pdf(pdf_file, model, output_dir, json_data, annotation_counter)
+        results, annotation_counter, timing_info = process_pdf(pdf_file, model, output_dir, json_data, annotation_counter)
         all_results[pdf_file.name] = results
+        timing_data[pdf_file.name] = timing_info
+        all_page_times.extend(timing_info["page_times"])
+        total_pages += timing_info["num_pages"]
+    
+    overall_end_time = time.time()
+    overall_time = overall_end_time - overall_start_time
+    
+    # Calculate statistics
+    avg_time_per_pdf = overall_time / len(pdf_files) if pdf_files else 0
+    avg_time_per_page = sum(all_page_times) / len(all_page_times) if all_page_times else 0
+    
     
     json_output_path = output_dir / "inference_results.json"
     with open(json_output_path, 'w', encoding='utf-8') as f:
@@ -363,6 +400,12 @@ def run_inference_pdfs(folder_path):
     print(f" All PDFs processed!")
     print(f" Images saved to: {output_dir}")
     print(f" JSON saved to: {json_output_path}")
+    print(f"\n️  TIMING STATISTICS:")
+    print(f"   Total time: {overall_time:.2f}s")
+    print(f"   Total PDFs: {len(pdf_files)}")
+    print(f"   Total pages: {total_pages}")
+    print(f"   Average per PDF: {avg_time_per_pdf:.2f}s")
+    print(f"   Average per page: {avg_time_per_page:.2f}s")
     print(f"{'='*60}")
     
     return all_results
@@ -398,12 +441,16 @@ def main():
             
             json_data = {}
             annotation_counter = 1
-            process_pdf(input_path, model, output_dir, json_data, annotation_counter)
+            results, annotation_counter, timing_info = process_pdf(input_path, model, output_dir, json_data, annotation_counter)
+            
+            # Add timing statistics for single PDF
+            
             
             json_output_path = output_dir / "inference_results.json"
             with open(json_output_path, 'w', encoding='utf-8') as f:
                 json.dump(json_data, f, indent=2, ensure_ascii=False)
             print(f"\n JSON saved to: {json_output_path}")
+            print(f"\n TIMING: {timing_info['total_time']:.2f}s total, {timing_info['total_time']/timing_info['num_pages']:.2f}s per page")
         else:
             run_inference(input_source, save=True, show=False)
     
